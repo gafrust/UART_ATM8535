@@ -18,6 +18,13 @@ int main(void)
         
         // Nastroika porta B: pin 0 kak vihod
         DDRB |= (1 << PB0);   // PB0 = output
+		
+		 // Nastroika porta D: pin 5 kak vihod
+		 DDRD |= (1 << PD5);   // PD5 = output
+		 
+		 PORTD |= (1 << PD5);   // vkluchit LED
+		
+		
         
         while(1)
         {
