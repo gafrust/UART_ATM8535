@@ -4,35 +4,145 @@
  * Created: 04.05.2026 19:49:20
  *  Author: gafurov
  */ 
-#include "uart.h"			// Podkluchenie zagolovochih failov
-#include <util/delay.h>
+//#include "uart.h"			// Podkluchenie zagolovochih failov
+//#include <util/delay.h>
 
 
 
 
-int main(void)
-{
+//int main(void)
+//{
    
-        init_uart();			// Prototip funkcii propisan v uart.h, a sama funkcia v uart.c
+ //       init_uart();			// Prototip funkcii propisan v uart.h, a sama funkcia v uart.c
         
         
         // Nastroika porta B: pin 0 kak vihod
-        DDRB |= (1 << PB0);   // PB0 = output
+ //       DDRB |= (1 << PB0);   // PB0 = output
 		
 		 // Nastroika porta D: pin 5 kak vihod
-		 DDRD |= (1 << PD5);   // PD5 = output
+//		 DDRD |= (1 << PD5);   // PD5 = output
 		 
-		 PORTD |= (1 << PD5);   // vkluchit LED
+//		 PORTD |= (1 << PD5);   // vkluchit LED
 		
 		
         
-        while(1)
-        {
-	        out_uart( 0x55 );
+ //       while(1)
+     //   {
+	//        out_uart(0x55);
+	//		out_uart( 0x44 );
 	        
-	        PORTB |= (1 << PB0);   // vkluchit LED
-	        _delay_ms(500);
-	        PORTB &= ~(1 << PB0);  // vicluchit LED
-	        _delay_ms(500);
+	//        PORTB |= (1 << PB0);   // vkluchit LED
+	//        _delay_ms(500);
+	//        PORTB &= ~(1 << PB0);  // vicluchit LED
+	//        _delay_ms(500);
+    //    }
+//}
+
+
+/*
+ * URR.c
+ *
+ * Created: 04.05.2026 19:49:20
+ * Author: gafurov
+ * 
+ * Описание:
+ * - В EEPROM размещён массив из 200 команд (по 4 байта на команду).
+ * - В цикле main все эти данные отправляются по UART (байт за байтом)
+ *   с паузой между байтами 10 мс.
+ */
+
+#include "uart.h"           // Подключение заголовочных файлов (должен содержать init_uart, out_uart)
+#include <util/delay.h>
+#include <avr/io.h>         // Для работы с регистрами EEPROM
+
+// ------------------------------------------------------------
+// 1. ОПРЕДЕЛЕНИЕ ДАННЫХ В EEPROM
+// ------------------------------------------------------------
+// Используем отдельную секцию .eeprom. При компиляции будет создан файл .eep.
+// Для ATmega8535 (1887ВЕ4У) объём EEPROM 512 байт.
+// Разместим массив команд (200 * 4 = 800 байт), но 800 > 512, поэтому
+// возьмём, например, 100 команд (400 байт) + счётчик.
+#define MAX_COMMANDS   100
+#define EEPROM_CMD_START 1   // байт 0 зарезервируем под счётчик
+
+// Массив в EEPROM. Ключевой атрибут __attribute__((section(".eeprom")))
+// заставляет линкер поместить эти данные в выходной файл .eep.
+// EEMEM — макрос из avr/eeprom.h, но мы его не используем, чтобы быть независимыми.
+// Поэтому явно указываем секцию.
+uint8_t eeprom_data[EEPROM_CMD_START + MAX_COMMANDS * 4] __attribute__((section(".eeprom"))) = {
+    // Байт 0 – счётчик команд (пусть будет 0x64 = 100)
+    0x64,
+    // Далее 100 команд по 4 байта (пример: команда 0xABCDEF, упакованная как описано ранее)
+    // Приведём первые несколько байт для демонстрации.
+    // Команда #0 (индекс 0): 0x123456 -> упаковка: 0x2A, 0x7C, 0xB7, 0xEF
+    0x2A, 0x7C, 0xB7, 0xEF,
+    // Команда #1: 0x789ABC -> 0x3C, 0x8F, 0x2B, 0x3D (пример)
+    0x3C, 0x8F, 0x2B, 0x3D,
+    // Для экономии места остальные команды можно заполнить 0xFF (или повторить)
+    // Но в реальном проекте вы сгенерируете нужные значения.
+    // Здесь для простоты заполним оставшиеся 98*4 = 392 байта значением 0xFF
+    // (используем designated initializer в GCC, чтобы заполнить всё)
+    [EEPROM_CMD_START + 8 ... EEPROM_CMD_START + MAX_COMMANDS*4 - 1] = 0xFF
+};
+
+// ------------------------------------------------------------
+// 2. ФУНКЦИЯ ЧТЕНИЯ БАЙТА ИЗ EEPROM (через регистры)
+// ------------------------------------------------------------
+unsigned char eeprom_read_byte(unsigned int uiAddress) {
+    // Ждём окончания предыдущей операции записи (если вдруг она идёт)
+    while (EECR & (1 << EEWE)) ;
+    // Устанавливаем адрес
+    EEAR = uiAddress;
+    // Запускаем чтение
+    EECR |= (1 << EERE);
+    // Возвращаем данные
+    return EEDR;
+}
+
+// ------------------------------------------------------------
+// 3. ФУНКЦИЯ ОТПРАВКИ ВСЕХ ДАННЫХ ИЗ EEPROM ПО UART
+// ------------------------------------------------------------
+void send_all_eeprom_data(void) {
+    // Читаем счётчик (байт 0)
+    uint8_t cmd_count = eeprom_read_byte(0);
+    // Отправляем его
+    out_uart(cmd_count);
+    _delay_ms(10);
+    
+    // Отправляем все данные команд (4 байта на каждую команду)
+    for (uint8_t i = 0; i < cmd_count; i++) {
+        uint16_t addr = EEPROM_CMD_START + i * 4;
+        for (uint8_t j = 0; j < 4; j++) {
+            uint8_t byte = eeprom_read_byte(addr + j);
+            out_uart(byte);
+            _delay_ms(10);   // пауза между байтами, чтобы не забить UART
         }
+    }
+}
+
+// ------------------------------------------------------------
+// 4. ОСНОВНАЯ ПРОГРАММА
+// ------------------------------------------------------------
+int main(void) {
+    init_uart();                // Инициализация UART (скорость 115200, 8N1)
+    
+    // Настройка портов для светодиодов (оставлено как было)
+    DDRB |= (1 << PB0);         // PB0 как выход
+    DDRD |= (1 << PD5);         // PD5 как выход
+    PORTD |= (1 << PD5);        // включить LED на PD5
+    
+    // Бесконечный цикл
+    while (1) {
+        // Каждые 2 секунды отправляем все данные из EEPROM по UART
+        send_all_eeprom_data();
+        
+        // Мигание LED на PB0 (как в оригинальном коде)
+        PORTB |= (1 << PB0);     // включить LED
+        _delay_ms(500);
+        PORTB &= ~(1 << PB0);    // выключить LED
+        _delay_ms(500);
+        
+        // Пауза перед следующим циклом отправки (оставшееся время)
+        _delay_ms(1000);         // чтобы общий интервал был ~2 секунды
+    }
 }
