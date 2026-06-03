@@ -16,7 +16,7 @@ Sodergit prototipi funcii i constanti dla ispolzovania v drugih modulah
 //////////////////////////////////////////
 //				Parametri UART			//
 //////////////////////////////////////////
-#define	BAUD	460800UL //115200UL //2400UL							// Scorost obmena po UART
+#define	BAUD	 115200UL //2400UL	460800UL	 					// Scorost obmena po UART
 #define SPEED	((F_CPU+BAUD*8)/(BAUD*16)-1)
 
 
@@ -24,8 +24,19 @@ Sodergit prototipi funcii i constanti dla ispolzovania v drugih modulah
 //			PROTOTIPI FUNCII			//
 //////////////////////////////////////////
 uint8_t	in_uart			(void);
-void	out_uart		(uint8_t);
+void	out_uart		(uint8_t);//?
 void	init_uart		(void);
+void send_4_bytes_from_eeprom(uint16_t);
+void send_eeprom_data_4byte(void);
+
+// Добавить в конец файла перед #endif
+void eeprom_write_byte(unsigned int uiAddress, unsigned char ucData);
+void handle_uart_commands(void);
+void send_eeprom_data_loop(void);
+
+// Объявление внешних переменных (доступны из других файлов)
+extern volatile uint8_t rx_buffer;
+extern volatile uint8_t rx_ready;
 
 
 #endif /* UART_H_ */
