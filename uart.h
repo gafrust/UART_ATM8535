@@ -34,9 +34,5 @@ void eeprom_write_byte(unsigned int uiAddress, unsigned char ucData);
 void handle_uart_commands(void);
 void send_eeprom_data_loop(void);
 
-// ќбъ€вление внешних переменных (доступны из других файлов)
-extern volatile uint8_t rx_buffer;
-extern volatile uint8_t rx_ready;
-
 
 #endif /* UART_H_ */

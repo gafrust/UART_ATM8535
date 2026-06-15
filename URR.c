@@ -1,7 +1,6 @@
 #include "uart.h"
 #include <util/delay.h>
 #include <avr/io.h>
-#include <avr/interrupt.h>
 
 // ---------- Конфигурация EEPROM ----------
 #define EEPROM_SIZE     512
@@ -9,27 +8,10 @@
 #define CMD_START       1       // начало массива команд (4 байта на команду)
 #define MAX_COMMANDS    100
 
-
-// ---------- Конфигурация ----------
-#define TEMP_BUFFER_SIZE 256  // Размер временного буфера
-
-
-
-// Буфер для временного хранения
-uint8_t temp_buffer[TEMP_BUFFER_SIZE];
-uint16_t temp_buffer_len = 0;
-uint16_t temp_buffer_addr = 0;
-uint8_t temp_buffer_ready = 0;
-
-
-
-
-
 // ---------- Режимы работы ----------
 #define MODE_NORMAL     0       // постоянная передача данных из EEPROM
 #define MODE_PROGRAM    1       // режим программирования (приём/запись)
 
-// Глобальные переменные
 volatile uint8_t current_mode = MODE_NORMAL;
 
 // ---------- Работа с EEPROM (чтение/запись) ----------
@@ -101,42 +83,23 @@ void send_4_bytes_from_eeprom(uint16_t start_address) {
 //-------------------------------------------------------------------------
 
 
-// ---------- Функции буфера ----------
-void buffer_write_byte(uint8_t data) {
-	if(temp_buffer_len < TEMP_BUFFER_SIZE) {
-		temp_buffer[temp_buffer_len++] = data;
-	}
-}
 
-void buffer_clear(void) {
-	temp_buffer_len = 0;
-	temp_buffer_ready = 0;
-}
+//void send_4_bytes_from_eeprom(uint16_t start_address) {
+	//// Временный тест: отправляем фиксированные байты
+	//out_uart(0xAA);
+	//out_uart(0xBB);
+	//out_uart(0xCC);
+	//out_uart(0xDD);
+//}
 
-void buffer_flush_to_eeprom(void) {
-	if(!temp_buffer_ready) return;
-	
-	// Выключаем прерывания на время записи в EEPROM
-	cli();
-	
-	for(uint16_t i = 0; i < temp_buffer_len; i++) {
-		eeprom_write_byte(temp_buffer_addr + i, temp_buffer[i]);
-	}
-	
-	sei();
-	
-	buffer_clear();
-	
-	// Сигнализируем о завершении
-	out_uart('F'); out_uart('L'); out_uart('S'); out_uart('H');
-}
 
-// ---------- Модифицированная обработка команд ----------
+
+// ---------- Обработка команд в режиме программирования ----------
 void handle_programming_mode(void) {
-	uint8_t cmd = in_uart();
+	uint8_t cmd = in_uart();   // блокирующее ожидание байта
 
 	switch (cmd) {
-		case 'W':   // Запись байта (сразу в EEPROM)
+		case 'W':   // Запись байта: W <addr_high> <addr_low> <data>
 		{
 			uint8_t ah = in_uart();
 			uint8_t al = in_uart();
@@ -144,14 +107,14 @@ void handle_programming_mode(void) {
 			uint16_t addr = (ah << 8) | al;
 			if (addr < EEPROM_SIZE) {
 				eeprom_write_byte(addr, data);
-				out_uart('O'); out_uart('K');
+				out_uart('O'); out_uart('K');   // подтверждение
 				} else {
 				out_uart('E'); out_uart('R');
 			}
 		}
 		break;
 
-		case 'R':   // Чтение байта
+		case 'R':   // Чтение байта: R <addr_high> <addr_low>
 		{
 			uint8_t ah = in_uart();
 			uint8_t al = in_uart();
@@ -165,47 +128,20 @@ void handle_programming_mode(void) {
 		}
 		break;
 
-		case 'B':   // Запись блока в БУФЕР (быстро!)
+		case 'B':   // Запись блока: B <len> <addr_high> <addr_low> <data0> ... <dataN-1>
 		{
 			uint8_t len = in_uart();
 			uint8_t ah = in_uart();
 			uint8_t al = in_uart();
 			uint16_t addr = (ah << 8) | al;
-			
-			if (addr + len <= EEPROM_SIZE && len <= TEMP_BUFFER_SIZE) {
-				buffer_clear();
-				temp_buffer_addr = addr;
-				
-				// Быстрый прием в буфер
+			if (addr + len <= EEPROM_SIZE) {
 				for (uint8_t i = 0; i < len; i++) {
-					buffer_write_byte(in_uart());
+					eeprom_write_byte(addr + i, in_uart());
 				}
-				
-				temp_buffer_ready = 1;
 				out_uart('O'); out_uart('K');
 				} else {
-				out_uart('E'); out_uart('R');
-				out_uart('!');
+				out_uart(ah); out_uart(al); out_uart(len);//out_uart('E'); out_uart('R');
 			}
-		}
-		break;
-		
-		case 'F':   // Flush - записать буфер в EEPROM
-		{
-			if(temp_buffer_ready && temp_buffer_len > 0) {
-				buffer_flush_to_eeprom();
-				out_uart('O'); out_uart('K');
-				} else {
-				out_uart('E'); out_uart('M');
-				out_uart('P');
-			}
-		}
-		break;
-		
-		case 'C':   // Clear - очистить буфер без записи
-		{
-			buffer_clear();
-			out_uart('O'); out_uart('K');
 		}
 		break;
 
@@ -213,85 +149,12 @@ void handle_programming_mode(void) {
 		current_mode = MODE_NORMAL;
 		out_uart('O'); out_uart('K');
 		break;
+
+		//default:
+		//out_uart('?');   // неизвестная команда
+		//break;
 	}
 }
-
-
-
-//void send_4_bytes_from_eeprom(uint16_t start_address) {
-	//// Временный тест: отправляем фиксированные байты
-	//out_uart(0xAA);
-	//out_uart(0xBB);
-	//out_uart(0xCC);
-	//out_uart(0xDD);
-//}
-
-
-
-// ---------- Обработка команд в режиме программирования ----------
-//void handle_programming_mode(void) {
-	//uint8_t cmd = in_uart();   // блокирующее ожидание байта
-//
-	//switch (cmd) {
-		//case 'W':   // Запись байта: W <addr_high> <addr_low> <data>
-		//{
-			//uint8_t ah = in_uart();
-			//uint8_t al = in_uart();
-			//uint8_t data = in_uart();
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//eeprom_write_byte(addr, data);
-				//out_uart('O'); out_uart('K');   // подтверждение
-				//} else {
-				//out_uart('E'); out_uart('R');
-			//}
-		//}
-		//break;
-//
-		//case 'R':   // Чтение байта: R <addr_high> <addr_low>
-		//{
-			//uint8_t ah = in_uart();
-			//uint8_t al = in_uart();
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//uint8_t data = eeprom_read_byte(addr);
-				//out_uart(data);
-				//} else {
-				//out_uart(0xFF);
-			//}
-		//}
-		//break;
-//
-		//case 'B':   // Запись блока: B <len> <addr_high> <addr_low> <data0> ... <dataN-1>
-		//{
-			//uint8_t len = in_uart();
-			//uint8_t ah = in_uart();
-			//uint8_t al = in_uart();
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr + len <= EEPROM_SIZE) {
-				//for (uint8_t i = 0; i < len; i++) {
-					//eeprom_write_byte(addr + i, in_uart());
-				//}
-				//out_uart('O'); out_uart('K');
-				//} else {
-				//out_uart(ah); out_uart(al); out_uart(len);//out_uart('E'); out_uart('R');
-			//}
-		//}
-		//break;
-//
-		//case 'X':   // Выход из режима программирования
-		//current_mode = MODE_NORMAL;
-		//out_uart('O'); out_uart('K');
-		//break;
-//
-		////default:
-		////out_uart('?');   // неизвестная команда
-		////break;
-	//}
-//}
-
-
-
 
 // ---------- Основной цикл передачи данных (режим MODE_NORMAL) ----------
 void send_eeprom_data_loop(void) {
@@ -333,7 +196,7 @@ void send_eeprom_data_4byte(void) {
 		uint8_t block_num = cmd - 4;  // если cmd=5 -> block_num=1
 		
 		// Адрес = START_ADDR + (block_num - 1) * 4
-		uint16_t addr = 0x06 + (block_num - 1) * 4;
+		uint16_t addr = 0x05 + (block_num - 1) * 4;
 		
 		// Проверка границ
 		if (addr + 3 < EEPROM_SIZE) {
@@ -377,89 +240,24 @@ void send_eeprom_data_4byte(void) {
 	//}
 //}
 
-//#include <avr/wdt.h>  // Для watchdog
-
-//void wait_for_programming_mode(void) {
-	//// Сброс UART
-	//UCSRB &= ~(1 << RXEN);
-	//_delay_ms(10);
-	//UCSRB |= (1 << RXEN);
-	//
-	//// Очистить буфер чтением UDR
-	//while(UCSRA & (1 << RXC)) {
-		//(void)UDR;
-	//}
-	//rx_ready = 0;
-	//
-	//out_uart('\r');
-	//out_uart('\n');
-	//out_uart('>');  // Приглашение к вводу
-	//
-	//uint32_t start_time = 0;
-	//while(start_time < 5000) {  // Ждем 5 секунд
-		//if (rx_ready) {
-			//uint8_t ch = rx_buffer;
-			//rx_ready = 0;
-			//
-			//if (ch == 'P') {
-				//current_mode = MODE_PROGRAM;
-				//out_uart('P'); out_uart('R'); out_uart('O'); out_uart('G');
-				//out_uart('\n');
-				//return;
-			//}
-			//out_uart(ch);  // Эхо
-		//}
-		//_delay_ms(1);
-		//start_time++;
-	//}
-	//
-	//out_uart('\n');
-	//out_uart('N');
-	//out_uart('O');
-	//out_uart('R');
-	//out_uart('M');
-	//out_uart('\n');
-	//current_mode = MODE_NORMAL;
-//}
 
 
 
-
-
+// ---------- Ожидание команды перехода в режим программирования ----------
 void wait_for_programming_mode(void) {
-	//out_uart('W');  // Отладка: начали ожидание
-	
-	// Ждем команду 'P' в течение 2 секунд
-	for (uint16_t i = 0; i < 200; i++) {
-		if (rx_ready) {
-			uint8_t ch = rx_buffer;
-			rx_ready = 0;
-			
-			// Отладка: показываем принятый символ
-			//out_uart('[');
-			//out_uart(ch);
-			//out_uart(']');
-			
+	// Ждём 1 секунду, если пришёл 'P' — переходим в режим программирования
+	for (uint8_t i = 0; i < 60; i++) {   // 10 раз по 100 мс = 1 сек
+		if (UCSRA & (1 << RXC)) {        // есть данные в буфере
+			uint8_t ch = UDR;
 			if (ch == 'P') {
 				current_mode = MODE_PROGRAM;
-				out_uart('P');
-				out_uart('R');
-				out_uart('O');
-				out_uart('G');
+				out_uart('P'); out_uart('R'); out_uart('O'); out_uart('G'); // подтверждение
 				return;
 			}
 		}
-		_delay_ms(10);
+		_delay_ms(100);
 	}
-	
-	//out_uart('T');  // Отладка: таймаут
-	current_mode = MODE_NORMAL;
 }
-
-
-
-
- 
 
 // ---------- Main ----------
 int main(void) {
@@ -472,15 +270,6 @@ int main(void) {
 
 	// Небольшая задержка перед проверкой команды
 	_delay_ms(200);
-	  sei();                    // 2. ГЛОБАЛЬНОЕ РАЗРЕШЕНИЕ ПРЕРЫВАНИЙ!!!
-	  
-	  // Отладочное сообщение
-	  //out_uart('S');            // Отправляем 'S' - система запущена
-	  //out_uart('T');
-	  //out_uart('A');
-	  //out_uart('R');
-	  //out_uart('T');
-	  //out_uart('\n');
 	wait_for_programming_mode();
 
 	// Основной цикл
@@ -490,6 +279,7 @@ int main(void) {
 			} else {
 			//send_eeprom_data_loop();     // обычная передача данных из EEPROM
 			send_eeprom_data_4byte();
-		}
+			//out_uart(0x55);
+		} _delay_ms(1000);
 	}
 }
