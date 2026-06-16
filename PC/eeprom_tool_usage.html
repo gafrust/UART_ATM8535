@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инструкция: eeprom_tool_fin.c</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+            background: #f8f9fc;
+            margin: 0;
+            padding: 20px;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin-top: 0;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+            color: #0b2b4a;
+        }
+        h2 {
+            font-size: 1.6rem;
+            margin-top: 2em;
+            border-left: 5px solid #3b82f6;
+            padding-left: 15px;
+            color: #1e3a5f;
+        }
+        h3 {
+            font-size: 1.3rem;
+            margin-top: 1.5em;
+            color: #1e3a5f;
+        }
+        code, .code {
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9em;
+            color: #0b2b4a;
+        }
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 16px 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        pre .cmd {
+            color: #7dd3fc;
+        }
+        pre .out {
+            color: #d4d4d4;
+        }
+        .note {
+            background: #fef9e7;
+            border-left: 6px solid #f59e0b;
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .tip {
+            background: #e0f2fe;
+            border-left: 6px solid #3b82f6;
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5em 0;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .badge {
+            background: #3b82f6;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .badge.green {
+            background: #22c55e;
+        }
+        .badge.orange {
+            background: #f59e0b;
+        }
+        .badge.red {
+            background: #ef4444;
+        }
+        @media (max-width: 640px) {
+            .container { padding: 20px; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📘 Инструкция по использованию <br><code>eeprom_tool_fin.c</code></h1>
+    <p><strong>Версия:</strong> 1.0 &nbsp;|&nbsp; <strong>Дата:</strong> 2026-06-16</p>
+
+    <h2>📌 Описание программы</h2>
+    <p>Программа <code>eeprom_tool_fin.c</code> предназначена для побайтовой записи и чтения данных из EEPROM через UART (RS-232).</p>
+    <p><strong>Протокол обмена:</strong></p>
+    <ul>
+        <li><strong>Вход в режим программирования:</strong> отправка байта <code>'P'</code> (0x50), ожидание ответа <code>"PROG"</code> (4 байта).</li>
+        <li><strong>Запись байта:</strong> команда <code>'W'</code> + адрес (2 байта, старший → младший) + байт данных, ожидание ответа <code>"OK"</code>.</li>
+        <li><strong>Чтение байта:</strong> команда <code>'R'</code> + адрес (2 байта), устройство возвращает один байт данных (без дополнительного подтверждения).</li>
+    </ul>
+    <p><strong>Настройки UART по умолчанию:</strong> <code>115200 8E1</code> (115200 бод, 8 бит данных, чётность Even, 1 стоп-бит, без управления потоком).</p>
+
+    <h2>🛠 1. Компиляция</h2>
+    <p>Убедитесь, что установлен компилятор GCC:</p>
+    <pre><span class="cmd">sudo apt update</span>
+<span class="cmd">sudo apt install build-essential</span></pre>
+    <p>Скомпилируйте программу:</p>
+    <pre><span class="cmd">gcc -o eeprom_tool eeprom_tool_fin.c</span></pre>
+    <p>Для компиляции с отладочной информацией:</p>
+    <pre><span class="cmd">gcc -g -o eeprom_tool eeprom_tool_fin.c</span></pre>
+
+    <h2>🔌 2. Подготовка UART-порта</h2>
+    <p>Программа по умолчанию использует порт <code>/dev/ttyUSB0</code>. Если ваш адаптер создаёт другой порт (например, <code>/dev/ttyACM0</code>), измените макрос в коде:</p>
+    <pre><span class="cmd">#define UART_DEVICE "/dev/ttyUSB0"</span></pre>
+    <p>Проверьте доступные порты:</p>
+    <pre><span class="cmd">ls -l /dev/ttyUSB*</span></pre>
+    <p>Добавьте пользователя в группу <code>dialout</code> для доступа к порту:</p>
+    <pre><span class="cmd">sudo usermod -a -G dialout $USER</span></pre>
+    <p>После этого <strong>выйдите из системы и зайдите заново</strong> (или перезапустите оболочку).</p>
+
+    <h2>✍️ 3. Режим записи (по умолчанию)</h2>
+    <h3>Входной файл</h3>
+    <p>Создайте файл <code>repacked_4bytes.txt</code> в той же папке, что и исполняемый файл. Каждая строка должна содержать ровно 4 шестнадцатеричных числа, разделённых пробелами или табуляцией.</p>
+    <p><strong>Пример содержимого:</strong></p>
+    <pre>13 52 9A CD
+FE 01 02 03
+A0 B1 C2 D3</pre>
+    <p>Пустые строки игнорируются.</p>
+
+    <h3>Запуск</h3>
+    <pre><span class="cmd">./eeprom_tool</span></pre>
+    <p>Программа выполнит:</p>
+    <ul>
+        <li>открытие UART,</li>
+        <li>вход в режим программирования,</li>
+        <li>чтение файла построчно,</li>
+        <li>запись 4 байт последовательно, начиная с адреса <code>0x06</code> (задаётся макросом <code>START_ADDR</code>),</li>
+        <li>ожидание <code>OK</code> после каждого байта,</li>
+        <li>вывод статистики.</li>
+    </ul>
+
+    <div class="tip">
+        <strong>Пример вывода в режиме записи:</strong>
+        <pre style="margin-top:8px; background:#1e293b; color:#e2e8f0; padding:12px;">=== EEPROM программатор (запись/чтение) ===
+=== Скорость UART: 115200 бод ===
+Открытие UART: /dev/ttyUSB0
+✓ UART открыт
+
+=== Переключение в режим программирования ===
+Отправка: 'P' (0x50)
+Ожидание ответа 'PROG'...
+✓ Получен ответ: PROG
+
+=== Режим ЗАПИСИ ===
+✓ Файл repacked_4bytes.txt открыт
+
+Стартовый адрес: 0x0006
+Формат: команда W + адрес + байт, ожидание OK
+
+Строка   1: [13 52 9A CD]
+  байт 0 (адрес 0x0006 = 0x13): OK ✓
+  байт 1 (адрес 0x0007 = 0x52): OK ✓
+  байт 2 (адрес 0x0008 = 0x9A): OK ✓
+  байт 3 (адрес 0x0009 = 0xCD): OK ✓
+  -> строка OK
+...
+=== РЕЗУЛЬТАТЫ ===
+Обработано строк: 10
+Успешных записей байт: 40
+Ошибок: 0
+Последний адрес: 0x0022</pre>
+    </div>
+
+    <h2>📖 4. Режим чтения</h2>
+    <p>Запуск с ключом <code>-r</code>:</p>
+    <pre><span class="cmd">./eeprom_tool -r [start_addr] [count]</span></pre>
+    <ul>
+        <li><code>start_addr</code> — начальный адрес (шестнадцатеричный или десятичный), по умолчанию <code>0x05</code>.</li>
+        <li><code>count</code> — количество байт для чтения, по умолчанию <code>400</code>.</li>
+    </ul>
+
+    <p><strong>Примеры:</strong></p>
+    <pre><span class="cmd">./eeprom_tool -r</span>                   <span class="out"># читает 400 байт с адреса 0x05</span>
+<span class="cmd">./eeprom_tool -r 0x10 32</span>            <span class="out"># читает 32 байта с адреса 0x10</span>
+<span class="cmd">./eeprom_tool -r 0 8</span>               <span class="out"># читает 8 байт с адреса 0x00</span></pre>
+
+    <div class="tip">
+        <strong>Пример вывода в режиме чтения:</strong>
+        <pre style="margin-top:8px; background:#1e293b; color:#e2e8f0; padding:12px;">=== Режим ЧТЕНИЯ ===
+Адрес начала: 0x0005, количество байт: 16
+Чтение...
+
+0x0005: 0x2E
+0x0006: 0x13
+0x0007: 0x52
+0x0008: 0x9A
+...
+Прочитано байт: 16</pre>
+    </div>
+
+    <h2>⚙️ 5. Настройка параметров в коде</h2>
+    <p>Основные макросы в начале файла:</p>
+    <pre>#define UART_DEVICE     "/dev/ttyUSB0"   // UART-порт
+#define BAUD_RATE       B115200          // скорость
+#define START_ADDR      0x06             // стартовый адрес для записи
+#define READ_START      0x05             // стартовый адрес для чтения (по умолчанию)</pre>
+    <p>Для изменения задержек отредактируйте функции:</p>
+    <ul>
+        <li>В <code>write_byte</code> после получения <code>OK</code> стоит <code>usleep(100000);</code> (100 мс).</li>
+        <li>В <code>read_byte</code> после отправки команды стоит <code>usleep(50000);</code> (50 мс) и после получения байта <code>usleep(100000);</code> (100 мс).</li>
+    </ul>
+    <p>Таймауты: <code>expect_ok(1000)</code> (1 сек), <code>recv_byte(..., 2000)</code> (2 сек).</p>
+
+    <h2>❗ 6. Частые проблемы и решения</h2>
+    <table>
+        <thead>
+            <tr><th>Проблема</th><th>Решение</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>Ошибка открытия UART: No such file or directory</code></td>
+                <td>Проверьте наличие адаптера: <code>ls /dev/ttyUSB*</code> или <code>dmesg | grep tty</code>. Убедитесь, что порт существует.</td>
+            </tr>
+            <tr>
+                <td><code>Permission denied</code> при открытии порта</td>
+                <td>Добавьте пользователя в группу <code>dialout</code> и перелогиньтесь. Или запустите с <code>sudo</code>.</td>
+            </tr>
+            <tr>
+                <td>Таймаут ожидания <code>PROG</code></td>
+                <td>Проверьте питание EEPROM, правильность подключения, совпадение скорости и чётности.</td>
+            </tr>
+            <tr>
+                <td>Таймаут ожидания <code>O</code> при записи</td>
+                <td>Увеличьте задержку после отправки данных в <code>write_byte</code> (например, до 200 мс).</td>
+            </tr>
+            <tr>
+                <td>Чтение обрывается после первого байта</td>
+                <td>Увеличьте задержку после получения байта в <code>read_byte</code> (например, <code>usleep(200000)</code>).</td>
+            </tr>
+            <tr>
+                <td>Ошибка парсинга строки в файле</td>
+                <td>Убедитесь, что числа разделены пробелами и нет лишних символов (запятых, точек).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="note">
+        <strong>💡 Совет:</strong> Если ваше устройство работает без чётности, закомментируйте строки с <code>PARENB</code> и <code>PARODD</code> в функции <code>uart_init</code> и добавьте <code>tty.c_cflag &amp;= ~PARENB;</code>.
+    </div>
+
+    <h2>📎 7. Дополнительные замечания</h2>
+    <ul>
+        <li>Программа использует чётность Even. Если устройство требует другого режима, измените настройки в <code>uart_init</code>.</li>
+        <li>Для медленных EEPROM увеличивайте все задержки в 2–5 раз.</li>
+        <li>Режим чтения по умолчанию читает 400 байт с адреса 0x05 — при необходимости измените макрос <code>READ_START</code>.</li>
+        <li>Все временные задержки указаны в микросекундах (<code>usleep</code>).</li>
+    </ul>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 2px dashed #d1d5db;">
+    <p style="text-align: center; color: #6b7280; font-size: 0.9rem;">
+        Инструкция подготовлена 16 июня 2026 г. &bull; Версия 1.0
+    </p>
+</div>
+</body>
+</html>
