@@ -90,7 +90,7 @@ void clear_uart_buffer(void) {
 }
 
 
-#define WAIT_BYTE(x) while(!in_uart_nonblock(&(x))) //{ _delay_ms(1); }
+#define WAIT_BYTE(x) while(!in_uart_nonblock(&(x))) // { _delay_ms(1); }
 	
 	void handle_programming_mode(void) {
 		vkl_rx_485();
@@ -111,11 +111,6 @@ void clear_uart_buffer(void) {
 			return;  // Выходим, не зависаем
 		}
 
-//void handle_programming_mode(void) {
-	//vkl_rx_485();
-	//
-	//uint8_t cmd;
-	//WAIT_BYTE(cmd);
 
 	switch (cmd) {
 		case 'W': {
@@ -126,6 +121,7 @@ void clear_uart_buffer(void) {
 			
 			uint16_t addr = (ah << 8) | al;
 			if (addr < EEPROM_SIZE) {
+				clear_uart_buffer();
 				// Сначала переключаемся на передачу для ответа
 				vkl_tx_485();
 				
@@ -151,39 +147,21 @@ void clear_uart_buffer(void) {
 		break;
         
 		
-		//case 'R': {
-			//uint8_t ah, al;
-			//WAIT_BYTE(ah);
-			//WAIT_BYTE(al);
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//uint8_t data = eeprom_read_byte(addr);
-				//vkl_tx_485();
-				//out_uart(data);
-				 //Ждем завершения передачи
-				//while(!(UCSRA & (1 << TXC)));
-				//vkl_rx_485();
-				//clear_uart_buffer();  // ? Очищаем после переключения!
-				//} else {
-				//vkl_tx_485();
-				//out_uart(0xFF);
-				//while(!(UCSRA & (1 << TXC)));
-				//vkl_rx_485();
-				//clear_uart_buffer();  // ? Очищаем после переключения!
-			//}
-		//}
-		//break;
+		
 		case 'R': {
+			
 			uint8_t ah, al;
 			WAIT_BYTE(ah);
 			WAIT_BYTE(al);
-			
 			uint16_t addr = (ah << 8) | al;
 			if (addr < EEPROM_SIZE) {
+				clear_uart_buffer();
 				uint8_t data = eeprom_read_byte(addr);
 				vkl_tx_485();
 				out_uart(data);
+				
+				//out_uart(ah);
+				//out_uart(al);
 				vkl_rx_485();
 				} else {
 				vkl_tx_485();
@@ -210,215 +188,30 @@ void clear_uart_buffer(void) {
 
 
 
-//#define WAIT_BYTE(x) while(!in_uart_nonblock(&(x))) { _delay_ms(1); }
-//
-//void handle_programming_mode(void) {
-	//vkl_rx_485();
-	//
-	//uint8_t cmd;
-	//WAIT_BYTE(cmd);
-//
-	//switch (cmd) {
-		//case 'W': {
-			//uint8_t ah, al, data;
-			//WAIT_BYTE(ah);
-			//WAIT_BYTE(al);
-			//WAIT_BYTE(data);
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//eeprom_write_byte(addr, data);
-				//vkl_tx_485();
-				//out_uart('O'); out_uart('K');
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart('E'); out_uart('R');
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'R': {
-			//uint8_t ah, al;
-			//WAIT_BYTE(ah);
-			//WAIT_BYTE(al);
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//uint8_t data = eeprom_read_byte(addr);
-				//vkl_tx_485();
-				//out_uart(data);
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart(0xFF);
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'X':
-		//current_mode = MODE_NORMAL;
-		//vkl_tx_485();
-		//out_uart('O'); out_uart('K');
-		//vkl_rx_485();
-		//break;
-		//
-		//default:
-		//break;
-	//}
-//}
 
-
-
-//void handle_programming_mode(void) {
-	//vkl_rx_485();
-	//
-	//// Ожидание команды (бесконечное)
-	//uint8_t cmd;
-	//while (!in_uart_nonblock(&cmd)) {
-		//_delay_ms(1);
-	//}
-//
-	//switch (cmd) {
-		//case 'W': {  // Запись байта: W <addr_high> <addr_low> <data>
-			//uint8_t ah, al, data;
-			//
-			//while (!in_uart_nonblock(&ah)) { _delay_ms(1); }
-			//while (!in_uart_nonblock(&al)) { _delay_ms(1); }
-			//while (!in_uart_nonblock(&data)) { _delay_ms(1); }
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//eeprom_write_byte(addr, data);
-				//vkl_tx_485();
-				//out_uart('O'); out_uart('K');
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart('E'); out_uart('R');
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'R': {  // Чтение байта: R <addr_high> <addr_low>
-			//uint8_t ah, al;
-			//
-			//while (!in_uart_nonblock(&ah)) { _delay_ms(1); }
-			//while (!in_uart_nonblock(&al)) { _delay_ms(1); }
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//uint8_t data = eeprom_read_byte(addr);
-				//vkl_tx_485();
-				//out_uart(data);
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart(0xFF);
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'X': {  // Выход из режима программирования
-			//current_mode = MODE_NORMAL;
-			//vkl_tx_485();
-			//out_uart('O'); out_uart('K');
-			//vkl_rx_485();
-		//}
-		//break;
-		//
-		//default:
-		//// Неизвестная команда - игнорируем
-		//break;
-	//}
-//}
-//
-
-
-
-
-// ---------- Обработка команд в режиме программирования ----------
-//void handle_programming_mode(void) {
-	//vkl_rx_485();
-	//
-	//// Ожидание команды с таймаутом
-	//uint8_t cmd = in_uart_timeout(500);
-	//if (cmd == 0xFF) {
-		//// Таймаут - возвращаемся в нормальный режим
-		//current_mode = MODE_NORMAL;
-		//return;
-	//}
-//
-	//switch (cmd) {
-		//case 'W': {  // Запись байта: W <addr_high> <addr_low> <data>
-			//uint8_t ah = in_uart_timeout(100);
-			//if (ah == 0xFF) break;
-			//
-			//uint8_t al = in_uart_timeout(100);
-			//if (al == 0xFF) break;
-			//
-			//uint8_t data = in_uart_timeout(100);
-			//if (data == 0xFF) break;
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//eeprom_write_byte(addr, data);
-				//vkl_tx_485();
-				//out_uart('O'); out_uart('K');
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart('E'); out_uart('R');
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'R': {  // Чтение байта: R <addr_high> <addr_low>
-			//uint8_t ah = in_uart_timeout(100);
-			//if (ah == 0xFF) break;
-			//
-			//uint8_t al = in_uart_timeout(100);
-			//if (al == 0xFF) break;
-			//
-			//uint16_t addr = (ah << 8) | al;
-			//if (addr < EEPROM_SIZE) {
-				//uint8_t data = eeprom_read_byte(addr);
-				//vkl_tx_485();
-				//out_uart(data);
-				//vkl_rx_485();
-				//} else {
-				//vkl_tx_485();
-				//out_uart(0xFF);
-				//vkl_rx_485();
-			//}
-		//}
-		//break;
-//
-		//case 'X': {  // Выход из режима программирования
-			//current_mode = MODE_NORMAL;
-			//vkl_tx_485();
-			//out_uart('O'); out_uart('K');
-			//vkl_rx_485();
-		//}
-		//break;
-		//
-		//default:
-		//// Неизвестная команда - игнорируем
-		//break;
-	//}
-//}
 
 // ---------- Основной цикл ответа по 4 байта ----------
+
 void send_eeprom_data_4byte(void) {
 	uint8_t cmd;
+	static uint16_t cooldown = 0;
+	
+	// Если таймаут активен
+	if (cooldown > 0) {
+		cooldown--;
+		// ПРИНУДИТЕЛЬНО ЧИСТИМ БУФЕР КАЖДЫЙ РАЗ!
+		clear_uart_buffer();
+		return;
+	}
 	
 	if (!in_uart_nonblock(&cmd)) {
 		return;  // Нет команды - выходим
+	}
+	
+	// Фильтруем мусор
+	if (cmd == 'O' || cmd == 'K' || cmd == 'E' || cmd == 'R' || cmd == 0xFF) {
+		clear_uart_buffer();
+		return;
 	}
 	
 	// Диапазон команд от 5 до 200
@@ -428,14 +221,76 @@ void send_eeprom_data_4byte(void) {
 		
 		if (addr + 3 < EEPROM_SIZE) {
 			send_4_bytes_from_eeprom(addr);
+			// Включаем защиту на 1 секунду
+			cooldown = 10;  // 10 * 100мс = 1 секунда
 			} else {
 			vkl_tx_485();
 			out_uart('E');
 			out_uart('R');
 			vkl_rx_485();
+			// Тоже включаем защиту при ошибке
+			cooldown = 5;  // 0.5 секунды
 		}
+		} else {
+		// Неизвестная команда - чистим буфер
+		clear_uart_buffer();
 	}
 }
+
+//void send_eeprom_data_4byte(void) {
+	//uint8_t cmd;
+	//static uint16_t cooldown = 0;  // Статическая переменная для отсчета
+	//
+	//// Если таймаут активен, уменьшаем счетчик и выходим
+	//if (cooldown > 0) {
+		//cooldown--;
+		//return;
+	//}
+	//
+	//if (!in_uart_nonblock(&cmd)) {
+		//return;  // Нет команды - выходим
+	//}
+	//
+	//// Диапазон команд от 5 до 200
+	//if (cmd >= 5 && cmd <= 200) {
+		//uint8_t block_num = cmd - 4;
+		//uint16_t addr = 0x05 + (block_num - 1) * 4;
+		//
+		//if (addr + 3 < EEPROM_SIZE) {
+			//send_4_bytes_from_eeprom(addr);
+			//// После успешного ответа включаем защиту на 1 секунду
+			//cooldown = 10;  // 10 * 100мс = 1 секунда
+			//} else {
+			//vkl_tx_485();
+			//out_uart('E');
+			//out_uart('R');
+			//vkl_rx_485();
+		//}
+	//}
+//}
+
+//void send_eeprom_data_4byte(void) {
+	//uint8_t cmd;
+	//
+	//if (!in_uart_nonblock(&cmd)) {
+		//return;  // Нет команды - выходим
+	//}
+	//
+	//// Диапазон команд от 5 до 200
+	//if (cmd >= 5 && cmd <= 200) {
+		//uint8_t block_num = cmd - 4;
+		//uint16_t addr = 0x05 + (block_num - 1) * 4;
+		//
+		//if (addr + 3 < EEPROM_SIZE) {
+			//send_4_bytes_from_eeprom(addr);
+			//} else {
+			//vkl_tx_485();
+			//out_uart('E');
+			//out_uart('R');
+			//vkl_rx_485();
+		//}
+	//}
+//}
 
 // ---------- Ожидание команды перехода в режим программирования ----------
 void wait_for_programming_mode(void) {
@@ -482,12 +337,50 @@ int main(void) {
 		if (current_mode == MODE_PROGRAM) {
 			handle_programming_mode();
 			} else {
+		  //  otkl_485();
+			//_delay_ms(100);
 			vkl_rx_485();
 			send_eeprom_data_4byte();
 		}
 		_delay_ms(100);
 	}
 }
+
+//int main(void) {
+	//init_uart();
+	//sei();
+	//
+	//DDRD |= (1 << PD4);
+	//DDRD |= (1 << PD5);
+	//SFIOR |= (1 << PUD);
+	//
+	//// Начинаем в режиме приема
+	//vkl_rx_485();
+	//
+	//_delay_ms(200);
+	//wait_for_programming_mode();
+	//
+	//while (1) {
+		//if (current_mode == MODE_PROGRAM) {
+			//handle_programming_mode();
+			//} else {
+			//// Нормальный режим
+			//// 1. Отключаем микросхему (чтобы не мешала)
+			//otkl_485();
+			//_delay_ms(10);
+			//
+			//// 2. Включаем прием
+			//vkl_rx_485();
+			//_delay_ms(10);
+			//
+			//// 3. Проверяем команду
+			//send_eeprom_data_4byte();
+			//
+			//// 4. Небольшая задержка
+			//_delay_ms(50);
+		//}
+	//}
+//}
 
 
 

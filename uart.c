@@ -80,7 +80,13 @@ void vkl_tx_485(void) {
 void vkl_rx_485(void) {
 	PORTD &= ~(1 << PD5);   // DE = 0
 	PORTD &= ~(1 << PD4);   // RE = 0
-	_delay_us(50);
+	_delay_us(10);
+}
+
+void otkl_485(void) {
+	PORTD &= ~(1 << PD5);   // DE = 0
+	PORTD |= (1 << PD4);   // RE = 1
+	_delay_us(10);
 }
 
 

@@ -31,6 +31,7 @@ void	handle_uart_commands(void);
 void	send_eeprom_data_loop(void);
 void	vkl_tx_485(void);
 void	vkl_rx_485(void);
+void    otkl_485(void);
 void clear_uart_buffer(void);
 
 #endif /* UART_H_ */
