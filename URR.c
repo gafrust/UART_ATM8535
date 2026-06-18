@@ -181,7 +181,8 @@ void clear_uart_buffer(void) {
 		_delay_ms(10);
 		out_uart('O');
 		out_uart('K');
-		
+		clear_uart_buffer();
+		_delay_ms(10);
 		vkl_rx_485();
 		break;
 		
@@ -214,7 +215,8 @@ void send_eeprom_data_4byte(void) {
 	}
 	
 	// Фильтруем мусор
-	if (cmd == 'O' || cmd == 'K' || cmd == 'E' || cmd == 'R' || cmd == 0xFF) {
+	//if (cmd == 'O' || cmd == 'K' || cmd == 'E' || cmd == 'R' || cmd == 0xFF) {
+		if (cmd == 0xFF) {
 		clear_uart_buffer();
 		return;
 	}
