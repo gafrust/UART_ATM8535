@@ -158,6 +158,9 @@ void clear_uart_buffer(void) {
 				clear_uart_buffer();
 				uint8_t data = eeprom_read_byte(addr);
 				vkl_tx_485();
+				
+				_delay_ms(10);
+				
 				out_uart(data);
 				
 				//out_uart(ah);
@@ -173,10 +176,12 @@ void clear_uart_buffer(void) {
 
 		case 'X':
 		current_mode = MODE_NORMAL;
+		clear_uart_buffer();
 		vkl_tx_485();
+		_delay_ms(10);
 		out_uart('O');
 		out_uart('K');
-		clear_uart_buffer();
+		
 		vkl_rx_485();
 		break;
 		
