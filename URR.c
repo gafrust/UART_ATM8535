@@ -191,9 +191,9 @@ void send_eeprom_data_4byte(void) {
 	uint8_t cmd = in_uart();
 	
 	// Диапазон команд от 5 до 200 (можно настроить)
-	if (cmd >= 5 && cmd <= 200) {
+	if (cmd >= 1 && cmd <= 50) {
 		// Переводим команду в номер блока (1..200)
-		uint8_t block_num = cmd - 4;  // если cmd=5 -> block_num=1
+		uint8_t block_num = cmd; //- 4;  // если cmd=5 -> block_num=1
 		
 		// Адрес = START_ADDR + (block_num - 1) * 4
 		uint16_t addr = 0x05 + (block_num - 1) * 4;
