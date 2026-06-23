@@ -1,9 +1,12 @@
 #include "uart.h"
 #include <util/delay.h>
 #include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <string.h>
+#include <stdio.h>
 
 // ---------- Конфигурация EEPROM ----------
-#define EEPROM_SIZE     512
+#define EEPROM_SIZE     1024
 #define CMD_ADDR        0
 #define CMD_START       1
 #define MAX_COMMANDS    100
@@ -13,6 +16,12 @@
 #define MODE_PROGRAM    1
 
 volatile uint8_t current_mode = MODE_NORMAL;
+
+const char build_date[] PROGMEM __attribute__((used)) = "Build Date: " __DATE__;
+const char build_time[] PROGMEM __attribute__((used)) = "Build Time: " __TIME__;
+
+//const char build_date[] PROGMEM __attribute__((section(".progmem.data"))) = "Build Date: " __DATE__;
+
 
 // ---------- Работа с EEPROM ----------
 //unsigned char eeprom_read_byte(unsigned int uiAddress) {
@@ -205,7 +214,6 @@ void send_eeprom_data_4byte(void) {
 	// Если таймаут активен
 	if (cooldown > 0) {
 		cooldown--;
-		// ПРИНУДИТЕЛЬНО ЧИСТИМ БУФЕР КАЖДЫЙ РАЗ!
 		clear_uart_buffer();
 		return;
 	}
@@ -214,35 +222,130 @@ void send_eeprom_data_4byte(void) {
 		return;  // Нет команды - выходим
 	}
 	
-	// Фильтруем мусор
-	//if (cmd == 'O' || cmd == 'K' || cmd == 'E' || cmd == 'R' || cmd == 0xFF) {
-		if (cmd == 0xFF) {
+	//// Фильтруем мусор
+	//if (cmd == 0xFF) {
+		//clear_uart_buffer();
+		//return;
+	//}
+	
+	// Обработка команд 254 и 255
+	if (cmd == 254 || cmd == 255) {
+		uint16_t addr;
+		if (cmd == 254) {
+			addr = 0x0330;  // Адрес для команды 254
+			} else { // cmd == 254
+			addr = 0x0334;  // Адрес для команды 255
+		}
+		
+		// Проверяем, что адрес в пределах EEPROM
+		if (addr + 3 < EEPROM_SIZE) {
+			send_4_bytes_from_eeprom(addr);
+			cooldown = 10;  // Защита от повторов
+			} else {
+			// Если адрес вне диапазона - выдаём 0x00 0x00 0x00 0x00
+			vkl_tx_485();
+			for (uint8_t i = 0; i < 4; i++) {
+				out_uart(0x00);
+				_delay_ms(5);
+			}
+			vkl_rx_485();
+			cooldown = 5;
+		}
 		clear_uart_buffer();
 		return;
 	}
 	
-	// Диапазон команд от 5 до 200
+	// Обработка нормальных команд (от 5 до 200)
 	if (cmd >= 5 && cmd <= 200) {
 		uint8_t block_num = cmd - 4;
 		uint16_t addr = 0x05 + (block_num - 1) * 4;
 		
 		if (addr + 3 < EEPROM_SIZE) {
 			send_4_bytes_from_eeprom(addr);
-			// Включаем защиту на 1 секунду
-			cooldown = 10;  // 10 * 100мс = 1 секунда
+			cooldown = 10;
 			} else {
 			vkl_tx_485();
 			out_uart('E');
 			out_uart('R');
 			vkl_rx_485();
-			// Тоже включаем защиту при ошибке
-			cooldown = 5;  // 0.5 секунды
+			cooldown = 5;
 		}
-		} else {
-		// Неизвестная команда - чистим буфер
 		clear_uart_buffer();
-	}
+		return;
+	} else {
+	
+	// Неизвестная команда - выдаём 0x00 0x00 0x00 0x00
+	clear_uart_buffer();
+	vkl_tx_485();
+	for (uint8_t i = 0; i < 4; i++) {
+		out_uart(0x00);
+		_delay_ms(5);
+	                                }
+	vkl_rx_485();
+	clear_uart_buffer();
+	       }
 }
+
+///========================зависает при добавлении 254 255
+//void send_eeprom_data_4byte(void) {
+	//uint8_t cmd;
+	//static uint16_t cooldown = 0;
+	//
+	//// Если таймаут активен
+	//if (cooldown > 0) {
+		//cooldown--;
+		//// ПРИНУДИТЕЛЬНО ЧИСТИМ БУФЕР КАЖДЫЙ РАЗ!
+		//clear_uart_buffer();
+		//return;
+	//}
+	//
+	//if (!in_uart_nonblock(&cmd)) {
+		//return;  // Нет команды - выходим
+	//}
+	//
+	//// Фильтруем мусор
+	////if (cmd == 'O' || cmd == 'K' || cmd == 'E' || cmd == 'R' || cmd == 0xFF) {
+		//if (cmd == 0xFF) {
+		//clear_uart_buffer();
+		//return;
+	//}
+	//
+	//// Диапазон команд от 5 до 200
+	//if ((cmd >= 5 && cmd <= 200) || (cmd == 254)||(cmd == 255)) {
+		//uint8_t block_num = cmd - 4;
+		//uint16_t addr = 0x05 + (block_num - 1) * 4;
+		//
+		//if (addr + 3 < EEPROM_SIZE) {
+			//send_4_bytes_from_eeprom(addr);
+			//// Включаем защиту на 1 секунду
+			//cooldown = 10;  // 10 * 100мс = 1 секунда
+			//} else {
+			//vkl_tx_485();
+			//out_uart('E');
+			//out_uart('R');
+			//vkl_rx_485();
+			//// Тоже включаем защиту при ошибке
+			//cooldown = 5;  // 0.5 секунды
+		//}
+		//} else { // Неизвестная команда - чистим буфер и выдаём 0X00 0X00 0X00 0X00
+			   //clear_uart_buffer();
+			    //vkl_tx_485();
+				//_delay_ms(10);
+				//out_uart(0x00);
+				//out_uart(0x00);
+				//out_uart(0x00);
+				//out_uart(0x00);
+			    //clear_uart_buffer();
+			    //vkl_rx_485();
+				//_delay_ms(10);
+			//
+		//
+		//clear_uart_buffer();
+	//} 
+//}
+///========================зависает при добавлении 254 255
+
+
 
 //void send_eeprom_data_4byte(void) {
 	//uint8_t cmd;
@@ -324,10 +427,154 @@ void wait_for_programming_mode(void) {
 	}
 }
 
+
+//void __attribute__((noinline)) force_include_build_info(void) {
+	//// Просто читаем адреса переменных, чтобы компилятор не вырезал их
+	//(void)build_date;
+	//(void)build_time;
+//}
+
+//// Глобальная переменная, которая принудительно "касается" даты
+//const char* __attribute__((used)) dummy_build_info = build_date;
+
+
+
+// ---------- Запись даты сборки в EEPROM ----------
+void write_build_info_to_eeprom(void) {
+	uint16_t addr = 0x0350;  // Адрес в EEPROM (можно изменить)
+	char buffer[30];
+	
+	// Записываем дату
+	strcpy_P(buffer, build_date);
+	for (uint8_t i = 0; buffer[i] != '\0'; i++) {
+		eeprom_write_byte(addr + i, buffer[i]);
+	}
+	eeprom_write_byte(addr + strlen_P(build_date), '\0');  // Завершающий ноль
+	
+}
+
+#include <string.h>   // для strcmp
+
+// Вспомогательная функция: месяц (3 буквы) ? номер (1-12)
+uint8_t month_to_num(const char *mon) {
+	const char *months[] = {"Jan","Feb","Mar","Apr","May","Jun",
+	"Jul","Aug","Sep","Oct","Nov","Dec"};
+	for (uint8_t i = 0; i < 12; i++) {
+		if (strcmp(mon, months[i]) == 0) return i + 1;
+	}
+	return 0;
+}
+
+// Запись компактной даты (4 байта) в EEPROM по адресу 0x0330
+
+void write_compact_date_to_eeprom(void) {
+	char date_str[30];
+	strcpy_P(date_str, build_date); // "Build Date: Jun 19 2026"
+
+	// ====== ВАЖНО: пропускаем "Build Date: " ======
+	char* p = date_str + 12; // теперь p указывает на "Jun 19 2026"
+
+	char mon[4];
+	int day, year;
+	if (sscanf(p, "%3s %d %d", mon, &day, &year) != 3) {
+		return; // ошибка парсинга
+	}
+
+	uint8_t month = month_to_num(mon);
+	if (month == 0) return;
+
+	uint8_t data[4] = {
+		month,              // месяц (6)
+		(uint8_t)day,       // день (19)
+		(uint8_t)(year / 100), // старшая часть года (20)
+		(uint8_t)(year % 100)  // младшая часть года (26)
+	};
+
+	uint16_t addr = 0x0330;
+	for (uint8_t i = 0; i < 4; i++) {
+		eeprom_write_byte(addr + i, data[i]);
+	}
+}
+
+//void write_compact_date_to_eeprom(void) {
+	//char date_str[30];
+	//strcpy_P(date_str, build_date); // "Build Date: Jun 19 2026"
+//
+	//// Ищем позицию, где начинается месяц (первая буква)
+	//char* p = date_str;
+	//while (*p && (*p < 'A' || *p > 'Z')) {
+		//p++; // пропускаем всё до первой заглавной буквы
+	//}
+//
+	//if (*p == '\0') return; // не нашли месяц
+//
+	//// Теперь p указывает на "Jun 19 2026"
+	//char mon[4];
+	//int day, year;
+	//sscanf(p, "%3s %d %d", mon, &day, &year);
+//
+	//uint8_t month = month_to_num(mon);
+	//if (month == 0) return;
+//
+	//uint8_t data[4] = {
+		//month,
+		//(uint8_t)day,
+		//(uint8_t)(year / 100),
+		//(uint8_t)(year % 100)
+	//};
+//
+	//uint16_t addr = 0x0330;
+	//for (uint8_t i = 0; i < 4; i++) {
+		//eeprom_write_byte(addr + i, data[i]);
+	//}
+//}
+
+
+
+
+//void write_compact_date_to_eeprom(void) {
+	//char date_str[20];
+	//vkl_tx_485();
+	//_delay_ms(5);
+	//out_uart(0x11);	
+	//strcpy_P(date_str, build_date); // build_date – const char[] PROGMEM
+//
+//out_uart(0x22);
+	//char mon[4];
+	//int day, year;
+	//sscanf(date_str, "%3s %d %d", mon, &day, &year);
+//
+	//uint8_t month = month_to_num(mon);
+	////if (month == 0) return;
+//out_uart(0x33);
+	////uint8_t data[4] = {month, (uint8_t)day, (uint8_t)(year/100), (uint8_t)(year%100)};
+	//uint8_t data[4] = {month, (uint8_t)day, 0x88, 0x98};
+	//uint16_t addr = 0x0330;
+	////const uint8_t data_[] = {0x55,0x56,0x57,0x58};
+//out_uart(0x44);
+	//for (uint8_t i = 0; i < 4; i++) {
+		//eeprom_write_byte(addr + i, data[i]);
+	//}
+	//vkl_rx_485();
+	//clear_uart_buffer();
+//}
+
+
+
+
+
+
+
 // ---------- Main ----------
 int main(void) {
 	init_uart();
 	sei();  // Разрешаем прерывания
+	
+	
+	
+	write_build_info_to_eeprom();
+	_delay_ms(10);
+	write_compact_date_to_eeprom();
 	
 	DDRD |= (1 << PD4);
 	DDRD |= (1 << PD5);

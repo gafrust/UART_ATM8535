@@ -33,6 +33,10 @@ void	vkl_tx_485(void);
 void	vkl_rx_485(void);
 void    otkl_485(void);
 void clear_uart_buffer(void);
+void write_build_info_to_eeprom(void);
+void write_compact_date_to_eeprom(void);
+uint8_t month_to_num(const char *mon);
+
 
 #endif /* UART_H_ */
 
