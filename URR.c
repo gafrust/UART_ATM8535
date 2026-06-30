@@ -138,7 +138,7 @@ void clear_uart_buffer(void) {
 				eeprom_write_byte(addr, data);
 				
 				// Небольшая задержка для завершения записи в EEPROM
-				_delay_ms(10);
+				_delay_ms(1);
 				
 				// Отправляем подтверждение
 				out_uart('O');
@@ -168,7 +168,7 @@ void clear_uart_buffer(void) {
 				uint8_t data = eeprom_read_byte(addr);
 				vkl_tx_485();
 				
-				_delay_ms(10);
+				_delay_ms(1);
 				
 				out_uart(data);
 				
@@ -596,7 +596,7 @@ int main(void) {
 			vkl_rx_485();
 			send_eeprom_data_4byte();
 		}
-		_delay_ms(100);
+		_delay_ms(1);
 	}
 }
 
