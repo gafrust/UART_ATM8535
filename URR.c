@@ -256,9 +256,9 @@ void send_eeprom_data_4byte(void) {
 	}
 	
 	// Обработка нормальных команд (от 5 до 200)
-	if (cmd >= 5 && cmd <= 200) {
-		uint8_t block_num = cmd - 4;
-		uint16_t addr = 0x05 + (block_num - 1) * 4;
+	if (cmd >= 1 && cmd <= 50) {
+		uint8_t block_num = cmd;// - 4;
+		uint16_t addr = 0x00 + (block_num - 1) * 4;
 		
 		if (addr + 3 < EEPROM_SIZE) {
 			send_4_bytes_from_eeprom(addr);
