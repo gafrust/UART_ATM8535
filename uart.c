@@ -5,7 +5,7 @@
 volatile uint8_t rx_buffer = 0;
 volatile uint8_t rx_ready = 0;
 
-// Обработчик прерывания приёма
+// Obrabotchik prerivania priema
 ISR(USART_RX_vect) {
 	rx_buffer = UDR;
 	rx_ready = 1;
@@ -33,8 +33,8 @@ void out_uart(uint8_t data) {
 	cli();
 	while(!(UCSRA & (1 << UDRE)));
 	UDR = data;
-	while(!(UCSRA & (1 << TXC)));  // Ждем ПОЛНОЙ отправки
-	UCSRA |= (1 << TXC);           // Сбрасываем флаг
+	while(!(UCSRA & (1 << TXC)));  // Gdem polnoi otpravki
+	UCSRA |= (1 << TXC);           // Sbrasivaem flag
 	sei();
 }
 
@@ -44,7 +44,7 @@ uint8_t in_uart(void) {
 	return rx_buffer;
 }
 
-// Блокирующее чтение с таймаутом (миллисекунды)
+// Blocirujushee chtenie s taimautom (ms)
 uint8_t in_uart_timeout(uint16_t timeout_ms) {
 	uint16_t timeout = 0;
 	while(timeout < timeout_ms) {
@@ -55,13 +55,13 @@ uint8_t in_uart_timeout(uint16_t timeout_ms) {
 		_delay_ms(1);
 		timeout++;
 	}
-	return 0xFF; // Таймаут
+	return 0xFF; // Taimaut
 }
 
 
 
 
-// Неблокирующая функция (возвращает 1 если данные есть)
+// Neblokirujuchaa funkcia chtenia (vozvrashaet 1 esli dannie est)
 uint8_t in_uart_nonblock(uint8_t *data) {
 	if(rx_ready) {
 		*data = rx_buffer;
