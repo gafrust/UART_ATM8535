@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 // ---------- Konfiguracia EEPROM ----------
-#define EEPROM_SIZE     1024
+#define EEPROM_SIZE    1024
 #define CMD_ADDR        0
 #define CMD_START       1
 #define MAX_COMMANDS    100
@@ -103,12 +103,13 @@ void clear_uart_buffer(void) {
 		if(cmd != 'R' && cmd != 'W' && cmd != 'X') {
 			// Neizvestnaa komanda - otpravlaem ERROR
 			vkl_tx_485();
+			clear_uart_buffer();
 			out_uart('E');
 			out_uart('R');
-			while(!(UCSRA & (1 << TXC)));
+			//while(!(UCSRA & (1 << TXC)));
 			vkl_rx_485();
 			clear_uart_buffer();
-			return;  // Vihodim, ne zavisaem
+			//return;  // Vihodim, ne zavisaem
 		}
 
 
@@ -395,7 +396,7 @@ void write_compact_date_to_eeprom(void) {
 		(uint8_t)(year % 100)  // mladshaja chast goda (26)
 	};
 
-	uint16_t addr = 0x0330;
+	uint16_t addr =  0x0330;
 	for (uint8_t i = 0; i < 4; i++) {
 		eeprom_write_byte(addr + i, data[i]);
 	}
@@ -422,7 +423,7 @@ int main(void) {
 	
 	DDRD |= (1 << PD4);
 	DDRD |= (1 << PD5);
-	SFIOR |= (1 << PUD);
+	//SFIOR |= (1 << PUD);
 	
 	vkl_rx_485();
 	
